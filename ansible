@@ -1,0 +1,196 @@
+root@test:/etc/ansible# egrep -v "#|^$" ansible.cfg
+[defaults]
+host_key_checking = False 免除第一次登陆需要yes/on
+[inventory]
+[privilege_escalation]
+[paramiko_connection]
+[ssh_connection]
+[persistent_connection]
+[accelerate]
+[selinux]
+[colors]
+[diff]
+
+
+root@ansible:/tmp# tail -4 /etc/ansible/hosts
+[testserver]
+host1 ansible_ssh_host=192.168.1.22
+host2 ansible_ssh_host=192.168.1.23
+[testserver:vars]
+ ansible_ssh_user=root
+ ansible_ssh_pass="qdsadaeq"
+
+ ansible testserver -m ping
+
+ansible命令格式
+ansible <host-pattern> [-m module_name] [-a args] [options]
+<host-pattern> 自己定义的主机组
+[-m module_name] 指定模块
+[-a args] 指定要执行的动作
+
+ 模块：
+ ansible-doc -s setup
+ --tree :将所有主机的输出信息保存到/tmp/目录下，以/etc/ansible/hosts里的主机名为文件名
+ansible all -m setup -a 'filter=ansible_distribution_version' --tree /tmp/
+
+ansible_all_ipv4_addresses：仅显示ipv4的信息
+ansible_devices：仅显示磁盘设备信息
+ansible_distribution：显示是什么系统，例：centos,suse等
+ansible_distribution_version：仅显示系统版本
+ansible_machine：显示系统类型，例：32位，还是64位
+ansible_eth0：仅显示eth0的信息
+ansible_hostname：仅显示主机名
+ansible_kernel：仅显示内核版本
+ansible_lvm：显示lvm相关信息
+ansible_memtotal_mb：显示系统总内存
+ansible_memfree_mb：显示可用系统内存
+ansible_memory_mb：详细显示内存情况
+ansible_swaptotal_mb：显示总的swap内存
+ansible_swapfree_mb：显示swap内存的可用内存
+ansible_mounts：显示系统磁盘挂载情况
+ansible_processor：显示cpu个数(具体显示每个cpu的型号)
+ansible_processor_vcpus：显示cpu个数(只显示总的个数)
+ansible_python_version：显示python版本
+
+
+filter ：过滤关键字
+#ansible db -m setup -a 'filter=ansible_distribution_version'
+ansible db -m setup -a 'filter=ansible_all_ipv4_addresses'
+
+copy
+管理主机数据--远程主机
+ansible test -m copy -a "src=/sh/test.sh dest=/server/scripts mode=0755"
+ansible test -m copy -a "src=/etc/hosts dest=/tmp/hello.txt" 本地复制到远程并改名
+ansible test -m copy -a "src=/etc/hosts dest=/tmp/a/b/c/"  ##复制时会创建目录，包括多级目录
+远程主机数据进行复制
+ansible test -m copy -a "remote_src=true src=/server/scripts/test.sh dest=/tmp/"
+
+file
+创建目录（支持创建多级目录）
+ansible test -m file -a "dest=/tmp/dir state=directory"
+创建文件
+ansible test -m file -a "dest=/tmp/hello state=touch"
+创建软连接
+ansible test -m file -a "src=/tmp/test.sh dest=/root/test.link state=link "
+删除文件目录
+ansible test -m file -a "dest=/root/test.link state=absent"
+
+fetch-远程获取
+从远程主机拉取文件
+ansible test -m fetch -a "src=/tmp/test.sh dest=/tmp" 成功后本地为/tmp/tmp/test.sh
+拉取时仅拉取目标文件或目录
+ansible test -m fetch -a "src=/tmp/test.sh dest=/tmp/ flat=yes" 成功后本地为/tmp/test.sh
+
+synchronize 同步
+ansible mf -m synchronize -a "src=/root/1.txt dest=/root"
+
+authorized_key 密钥模块
+
+script-在远程执行本地的脚本(脚本在ansible主机上)
+ansible testserver -m script -a "/root/test.sh"
+ansible testserver -m shell -a "bash /root/test.sh" 脚本在远程机上
+ansible ansible-demo3 -m script -a "chdir=/opt /testdir/testscript.sh"
+上面命令表示 ansible 主机中的 /testdir/testscript.sh 脚本将在 ansible-demo3 主机中执行，执行此脚本之前，会先进入到 ansible-demo3 主机中的 /opt 目录
+ansible ansible-demo3 -m script -a "creates=/testdir/testfile1 /testdir/testscript.sh"
+上面命令表示，ansible-demo3 主机中的 /testdir/testfile1文件已经存在，ansible 主机中的 /testdir/testscript.sh 脚本将不会在 ansible-demo3 主机中执行。
+ansible ansible-demo3 -m script -a "removes=/testdir/testfile1 /testdir/testscript.sh"
+上面命令表示，ansible-demo3 主机中的 /testdir/testfile1 文件存在，ansible 主机中的 /testdir/testscript.sh 脚本则会在 ansible-demo3 主机中执行。
+
+
+
+
+
+
+
+
+
+
+
+
+
+test.yml
+---
+- hosts: webservers
+  remote_user: root
+
+  tasks:
+  - name: ensure apache is at the latest version
+    yum:
+      name: httpd
+      state: latest
+  - name: write the apache config file
+    template:
+      src: /srv/httpd.j2
+      dest: /etc/httpd.conf
+
+- hosts: databases
+  remote_user: root
+
+  tasks:
+  - name: ensure postgresql is at the latest version
+    yum:
+      name: postgresql
+      state: latest
+  - name: ensure that postgresql is started
+    service:
+      name: postgresql
+      state: started
+
+
+CPU 利用率统计：
+top -bn1 | grep load | awk '{printf "CPU Load: %.2f\n", $(NF-2)}'
+内存利用率统计：
+free -m | awk 'NR==2{printf "Memory Usage: %s/%sMB (%.2f%%)\n", $3,$2,$3*100/$2 }'
+磁盘利用率统计（列出每块磁盘利用率）：
+df -h -t ext2 -t ext4 | grep -vE '^Filesystem|tmpfs|cdrom' | awk '{ print "Disk Usage:"" " $1 " " $3"/"$2" ""("$5")"}'
+
+
+vim server-cpu-mem-disk-usage.yml
+---
+- name: Statistics CPU Memory Disk Utilization
+  hosts: testserver
+  become: no
+  remote_user: root
+  gather_facts: no
+  tasks:
+    - name: "Statistics CPU Memory Disk Utilization..."
+      shell: |
+        free -m | awk 'NR==2{printf "Memory Usage: %s/%sMB (%.2f%%)\n", $3,$2,$3*100/$2 }'
+        df -h -t ext2 -t ext4 | grep -vE '^Filesystem|tmpfs|cdrom' | awk '{ print "Disk Usage:"" " $1 " " $3"/"$2" ""("$5")"}'
+        top -bn1 | grep load | awk '{printf "CPU Load: %.2f\n", $(NF-2)}'
+      register: out
+    - debug: var=out.stdout_lines
+
+
+ 同步：synchronize
+
+ https://blog.51cto.com/13630803/2154192
+
+ssh-keygen -t rsa -b 2048 回车 回车 回车
+ssh-copy-id $IP #$IP为本虚机地址，按照提示输入yes 和root密码
+
+
+roles：
+files/ ： 存放由copy或script模块等调用的文件
+templates： template模块查找所需的模版文件目录
+tasks：定义task，roles的基本元素，至少应该包含一个名为main.yml的文件，其他的文件需要再此文件中通过
+include进行包含
+handlers：至少应该包含一个名为main.yml的文件，其他的文件需要再此文件中通过include进行包好
+var ：定义变量，至少应该包含一个名为main.yml的文件，其他的文件需要再此文件中通过include进行包好
+mata：定义当前角色的特殊设定及其依赖关系，至少应该包含一个名为main.yml的文件，其他的文件需要再此
+文件中通过include进行包好
+default：设定默认变量时使用此目录的main.yml文件
+
+sed -i "s/Hostname=/Hostname=$HOSTNAME/g" /etc/zabbix/zabbix_agentd.conf
+
+zabbix_get -s 127.0.0.1 -p 10050 -k pingdiscovery
+
+zabbix_get -s 127.0.0.1 -p 10050 -k ping[192.168.1.22,alive]
+zabbix_get -s 127.0.0.1 -p 10050 -k ping[192.168.1.23,alive]
+
+apt upgrade
+
+9Z85ZhIur8a*NJDOIsLMbn0C<<7@r
+
+第一次不输入yes
+ansible.cfg的#host_key_checking= False取消注释，即

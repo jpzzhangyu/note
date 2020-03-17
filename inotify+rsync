@@ -1,0 +1,94 @@
+inotify+rsync
+syncd
+lsyncd
+sersync
+
+apt install inotify-tools -y
+
+cd /proc/sys/fs/inotify/
+max_queued_events  max_user_instances  max_user_watches
+
+inotifywait 选项
+-m 表示始终监控，否则应该是监控到了一次就退出监控了
+-r 递归监控，监控目录中的任何文件 包括子目录 递归监控可能会超出max_user_watches的值，需适当调整该值
+@<file> 如果对目录进行递归监控，则该选项用于排除递归目录中不被监控的文件，file是相对路径还是绝对立即是由监控目录是相对还是绝对来决定的
+-q --quiet的意思，静默监控这样就不会输出一些无关的信息
+-e 指定监控的事件 一般监控的就是delete create attrib modify close_write
+--exclude 通过模式匹配来指定不被监控的文件，区分大小写
+--excludei 通过模式匹配来指定不被监控的文件，不区分大小写
+--timefmt 监控到事件的触发后 输出的时间格式 可指定可不知道该选项，一般设置为[--timefmt'%Y/%m/%d %H:%M:%S']
+--format 用户自定义的输出格式，如[--format '%w%f%e%T']
+%w 产生事件的监控路径，不一定就是发生时间的具体文件，例如递归监控一个目录，该目录下的某个文件产生事件，将输出该目录而非目录内具体的文件
+%f 如果监控的是一个目录，则输出产生事件的具体文件名 其他所有情况都输出空格字符串
+%e 产生的事件名称
+%T 已“--timefmt”定义的时间格式输出当前时间 要求同事定义“--timefmt”
+
+inotifywait -e 可监控的事件：
+
+Events	含义
+access	文件或目录被读取
+modify	文件或目录内容被修改
+attrib	文件或目录属性被改变
+close	文件或目录封闭，无论读/写模式
+open	文件或目录被打开
+moved_to	文件或目录被移动至另外一个目录
+move	文件或目录被移动到另一个目录或从另一个目录移动至当前目录
+create	文件或目录被创建在当前目录
+delete	文件或目录被删除
+umount	文件系统被卸载
+
+
+
+
+lsyncd
+
+https://www.cnblogs.com/jiangzhaowei/p/8298416.html
+apt install lsyncd
+ls /usr/share/doc/lsyncd/
+
+
+https://www.jianshu.com/p/808d173786c4
+
+三、Lsyncd本地同步
+首先，创建日志文件，用于跟踪。
+
+mkdir /var/log/lsyncd
+touch /var/log/lsyncd/lsyncd.{log,status}
+然后，创建配置文件。
+
+mkdir /etc/lsyncd
+vim /etc/lsyncd/lsyncd.conf.lua
+配置文件写入以下内容（注意把Source和Target分别替换你的源目录路径和目标目录路径）：
+
+settings = {
+        logfile = "/var/log/lsyncd/lsyncd.log",
+        statusFile = "/var/log/lsyncd/lsyncd.status"
+}
+ 
+sync {
+        default.rsync,
+        source = "/var/www/source_dir",
+        target = "/home/snail/backup",
+}
+最后，启动lsyncd服务：systemctl restart lsyncd，往源目录中添加文件，看看目标目录中会不会同步增加。如果没有，请查看日志。
+
+
+
+
+settings = {
+    insist = true,
+    logfile = "/var/log/lsyncd/lsyncd.log",
+    statusFile = "/var/log/lsyncd/lsyncd.status"
+}
+ 
+sync {
+    default.rsyncssh,
+    source = "/root/test",
+    host = "192.168.1.2",
+    targetdir = "/root/test1"
+
+    ssh = {
+        port = 12345
+    }
+    
+}

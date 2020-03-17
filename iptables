@@ -1,0 +1,80 @@
+netstat -n | awk ‘/^tcp/ {++S[$NF]} END {for(a in S) print a, S[a]}’ 
+
+
+LAST_ACK 14
+SYN_RECV 348
+ESTABLISHED 70
+FIN_WAIT1 229
+FIN_WAIT2 30
+CLOSING 33
+TIME_WAIT 18122 
+
+状态：描述
+CLOSED：无连接是活动的或正在进行
+LISTEN：服务器在等待进入呼叫
+SYN_RECV：一个连接请求已经到达，等待确认
+SYN_SENT：应用已经开始，打开一个连接
+ESTABLISHED：正常数据传输状态
+FIN_WAIT1：应用说它已经完成
+FIN_WAIT2：另一边已同意释放
+ITMED_WAIT：等待所有分组死掉
+CLOSING：两边同时尝试关闭
+TIME_WAIT表示处理完毕，等待超时结束的请求数。
+LAST_ACK：等待所有分组死掉
+
+ipset文档
+https://wiki.archlinux.org/index.php/Ipset_(%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87)#%E4%BC%98%E5%8C%96   
+
+ipset create myset hash:net
+查看集合。
+# ipset list
+删除名为“myset”的集合。
+# ipset destroy myset
+删除所有集合。
+# ipset destroy
+
+iptables -F
+iptables -A INPUT -m set --match-set WHITE_LIST src -j ACCEPT
+iptables -A INPUT -p tcp -m length --length 20960: -j DROP
+iptables -A INPUT -m set --match-set IPSET_LIST src -j DROP
+iptables -A INPUT -p tcp --dport 28891  -m recent --name BAD_CC_ACCESS --update --seconds 60 --hitcount 15 -j SET --add-set IPSET_LIST src
+iptables -A INPUT -p tcp --dport 28891  -m recent --name BAD_CC_ACCESS --set -j ACCEPT
+
+
+ipset add IPSET_LIST 192.168.1.2
+ipset list |grep 192.168.1.2
+ipset del IPSET_LIST 192.168.1.2
+ipset add WHITE_LIST 192.168.1.2
+ipset save IPSET_LIST > `${HOSTNAME}-date "+%F-%T"`.txt
+
+
+ipset del  IPSET_LIST 192.168.1.2
+ipset add WHITE_LIST  192.168.1.2
+ipset list |grep 192.168.1.2
+
+
+ipset list |grep 192.168.1.2 
+ipset del  IPSET_LIST 192.168.1.2 
+
+
+
+ipset create WHITE_LIST hash:net maxelem 1000000
+
+
+
+sed -n '/16\/Feb\/2016/,/17\/Feb\/2016/p' access_log
+sed -n '/06\/Jun\/2019:19:10:27/,/06\/Jun\/2019:19:12:10/p' /var/log/nginx/access.log > nginx.log
+
+防火墙设置
+iptables -F
+iptables -A INPUT -m state --state INVALID -j DROP
+iptables -A OUTPUT -m state --state INVALID -j DROP
+iptables -A FORWARD -m state --state INVALID -j DROP
+iptables -A INPUT -p all -m length --length 40960: -j DROP
+iptables -A INPUT -m set --match-set WHITE_LIST src -j ACCEPT
+iptables -A INPUT -m set --match-set IPSET_LIST src -j DROP
+iptables -A INPUT -p tcp --dport 28891  --syn -m recent --name BAD_CC_ACCESS --update --seconds 60 --hitcount 10 -j SET --add-set IPSET_LIST src
+iptables -A INPUT -p tcp --dport 28891  --syn -m recent --name BAD_CC_ACCESS --set -j ACCEPT
+
+
+sed -n '/2020\-01\-16T19\:00\:00/,/2020\-01\-16T22\:23\:50/p' 
